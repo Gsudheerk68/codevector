@@ -26,7 +26,7 @@ const Product = require("./product.model");
 
 const app = express();
 app.use(cors({
-  origin: "https://codevectorv2.netlify.app"  
+  origin: "https://codevectorv2.netlify.app"
 }));
 app.use(express.json());
 
