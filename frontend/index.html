@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Product Browser — Pagination Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f0f2f5; color: #222; }
+
+    header {
+      background: #1a1a2e; color: white; padding: 16px 24px;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    header h1 { font-size: 1.2rem; }
+    #totalCount { margin-left: auto; font-size: 0.85rem; opacity: 0.7; }
+
+    /* ── DEMO BANNER ── */
+    .demo-banner {
+      background: #fff3cd; border-bottom: 2px solid #ffc107;
+      padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .demo-banner strong { color: #856404; }
+    .demo-banner p { font-size: 0.88rem; color: #555; flex: 1; }
+    #injectBtn {
+      background: #dc3545; color: white; border: none;
+      padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600;
+      white-space: nowrap;
+    }
+    #injectBtn:hover { background: #bb2d3b; }
+    #injectResult { font-size: 0.82rem; color: #198754; font-weight: 600; }
+
+    /* ── TWO COLUMNS ── */
+    .columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      min-height: calc(100vh - 160px);
+    }
+    @media (max-width: 800px) { .columns { grid-template-columns: 1fr; } }
+
+    .panel {
+      padding: 16px;
+      border-right: 1px solid #ddd;
+    }
+    .panel:last-child { border-right: none; }
+
+    .panel-header {
+      padding: 12px 16px; border-radius: 8px; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .panel-header.good { background: #d1f5d8; border: 1px solid #5cb85c; }
+    .panel-header.bad  { background: #fde8e8; border: 1px solid #e05c5c; }
+
+    .panel-title { font-weight: 700; font-size: 0.95rem; }
+    .panel-sub { font-size: 0.78rem; color: #555; }
+
+    /* ── CONTROLS ── */
+    .controls { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+    select, .ctrl-btn {
+      padding: 6px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85rem;
+    }
+    .ctrl-btn { background: #1a1a2e; color: white; border: none; cursor: pointer; }
+    .ctrl-btn:hover { background: #16213e; }
+    .ctrl-btn:disabled { background: #999; cursor: default; }
+
+    /* ── PRODUCT LIST ── */
+    .product-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .product-row {
+      background: white; border-radius: 6px; padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+      border-left: 3px solid transparent;
+      font-size: 0.85rem;
+    }
+    .product-row.injected {
+      border-left-color: #dc3545;
+      background: #fff5f5;
+    }
+    .product-row .cat {
+      font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+      color: #7c3aed; min-width: 90px;
+    }
+    .product-row .name { flex: 1; }
+    .product-row .price { font-weight: 700; color: #1a1a2e; min-width: 60px; text-align: right; }
+    .product-row .date { font-size: 0.7rem; color: #aaa; min-width: 80px; text-align: right; }
+
+    .page-info { font-size: 0.8rem; color: #888; margin: 8px 0; }
+
+    /* ── DUPLICATE HIGHLIGHT ── */
+    .product-row.duplicate {
+      border-left-color: #ffc107;
+      background: #fffbea;
+    }
+    .dup-badge {
+      background: #ffc107; color: #333; font-size: 0.65rem; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px;
+    }
+
+    .loading { padding: 20px; text-align: center; color: #aaa; }
+    .legend { font-size: 0.75rem; color: #666; margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .legend span { display: flex; align-items: center; gap: 4px; }
+    .dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🛒 Product Browser — Live Pagination Demo</h1>
+  <span id="totalCount">Loading...</span>
+</header>
+
+<!-- DEMO CONTROL BAR -->
+<div class="demo-banner">
+  <div>
+    <strong>🧪 Live Demo:</strong>
+    <p>Go to page 2+ in BOTH panels, then click the button to inject 50 new products. Watch the difference!</p>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end">
+    <button id="injectBtn">💉 Inject 50 New Products NOW</button>
+    <span id="injectResult"></span>
+  </div>
+</div>
+
+<div class="columns">
+
+  <!-- LEFT: CURSOR PAGINATION (GOOD) -->
+  <div class="panel">
+    <div class="panel-header good">
+      <div>
+        <div class="panel-title">✅ Cursor Pagination (Correct)</div>
+        <div class="panel-sub">Uses: createdAt + _id as cursor position</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <select id="cursorCategory">
+        <option value="All">All Categories</option>
+      </select>
+      <button class="ctrl-btn" id="cursorPrev" disabled>← Prev</button>
+      <span id="cursorPageInfo" class="page-info">Page 1</span>
+      <button class="ctrl-btn" id="cursorNext" disabled>Next →</button>
+    </div>
+
+    <div class="legend">
+      <span><span class="dot" style="background:#dc3545"></span> Newly injected product</span>
+      <span><span class="dot" style="background:#ffc107"></span> DUPLICATE (bad!)</span>
+    </div>
+
+    <div id="cursorList" class="product-list" style="margin-top:8px">
+      <div class="loading">Loading...</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: OFFSET PAGINATION (BAD) -->
+  <div class="panel">
+    <div class="panel-header bad">
+      <div>
+        <div class="panel-title">❌ Offset Pagination (Broken)</div>
+        <div class="panel-sub">Uses: skip( (page-1) × limit ) — unstable!</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl-btn" id="offsetPrev" disabled>← Prev</button>
+      <span id="offsetPageInfo" class="page-info">Page 1</span>
+      <button class="ctrl-btn" id="offsetNext">Next →</button>
+    </div>
+
+    <div class="legend">
+      <span><span class="dot" style="background:#dc3545"></span> Newly injected product</span>
+      <span><span class="dot" style="background:#ffc107"></span> DUPLICATE (bad!)</span>
+    </div>
+
+    <div id="offsetList" class="product-list" style="margin-top:8px">
+      <div class="loading">Loading...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = "http://localhost:3000";
+
+// ════════════════════════════════════════════════════════
+// CURSOR PAGINATION STATE
+// ════════════════════════════════════════════════════════
+let cursorStack = [null]; // index = page-1, value = cursor to use
+let cursorPage = 1;
+let cursorNextCursor = null;
+let cursorCategory = "All";
+
+// We remember all product IDs we've seen to detect duplicates
+let seenCursorIds = new Set();
+
+async function fetchCursor(cursor) {
+  document.getElementById("cursorList").innerHTML = '<div class="loading">Loading...</div>';
+
+  const params = new URLSearchParams({ limit: 20 });
+  if (cursorCategory !== "All") params.set("category", cursorCategory);
+  if (cursor) {
+    params.set("lastId", cursor.lastId);
+    params.set("lastCreatedAt", cursor.lastCreatedAt);
+  }
+
+  const res = await fetch(`${API}/api/products?${params}`);
+  const data = await res.json();
+
+  cursorNextCursor = data.nextCursor;
+  renderCursorProducts(data.products, data.hasNextPage);
+}
+
+function renderCursorProducts(products, hasNextPage) {
+  const list = document.getElementById("cursorList");
+
+  list.innerHTML = products.map(p => {
+    const isNew = p.name.startsWith("INJECTED");
+    const isDup = seenCursorIds.has(String(p._id));
+    // Add to seen set
+    seenCursorIds.add(String(p._id));
+
+    return `
+      <div class="product-row ${isNew ? 'injected' : ''} ${isDup ? 'duplicate' : ''}">
+        <span class="cat">${p.category}</span>
+        <span class="name">${p.name} ${isDup ? '<span class="dup-badge">DUPLICATE!</span>' : ''}</span>
+        <span class="price">$${p.price.toFixed(2)}</span>
+        <span class="date">${fmtDate(p.createdAt)}</span>
+      </div>`;
+  }).join("");
+
+  document.getElementById("cursorPageInfo").textContent = `Page ${cursorPage}`;
+  document.getElementById("cursorPrev").disabled = cursorPage === 1;
+  document.getElementById("cursorNext").disabled = !hasNextPage;
+}
+
+document.getElementById("cursorNext").onclick = () => {
+  if (!cursorNextCursor) return;
+  cursorStack.push(cursorNextCursor);
+  cursorPage++;
+  fetchCursor(cursorNextCursor);
+};
+
+document.getElementById("cursorPrev").onclick = () => {
+  if (cursorPage <= 1) return;
+  cursorStack.pop();
+  cursorPage--;
+  fetchCursor(cursorStack[cursorStack.length - 1]);
+};
+
+document.getElementById("cursorCategory").onchange = (e) => {
+  cursorCategory = e.target.value;
+  cursorStack = [null];
+  cursorPage = 1;
+  seenCursorIds.clear();
+  fetchCursor(null);
+};
+
+// ════════════════════════════════════════════════════════
+// OFFSET PAGINATION STATE
+// ════════════════════════════════════════════════════════
+let offsetPage = 1;
+// Remember products from page 1 and 2 to detect duplicates visually
+let seenOffsetIds = new Set();
+let offsetPage1Ids = new Set(); // store page 1 IDs for cross-page dup detection
+
+async function fetchOffset(page) {
+  document.getElementById("offsetList").innerHTML = '<div class="loading">Loading...</div>';
+
+  const res = await fetch(`${API}/api/products/offset?page=${page}&limit=20`);
+  const data = await res.json();
+  renderOffsetProducts(data.products, page);
+}
+
+function renderOffsetProducts(products, page) {
+  const list = document.getElementById("offsetList");
+
+  // If going to page 2+, check for duplicates from earlier pages
+  list.innerHTML = products.map(p => {
+    const isNew = p.name.startsWith("INJECTED");
+    const isDup = seenOffsetIds.has(String(p._id));
+    seenOffsetIds.add(String(p._id));
+
+    return `
+      <div class="product-row ${isNew ? 'injected' : ''} ${isDup ? 'duplicate' : ''}">
+        <span class="cat">${p.category}</span>
+        <span class="name">${p.name} ${isDup ? '<span class="dup-badge">DUPLICATE!</span>' : ''}</span>
+        <span class="price">$${p.price.toFixed(2)}</span>
+        <span class="date">${fmtDate(p.createdAt)}</span>
+      </div>`;
+  }).join("");
+
+  document.getElementById("offsetPageInfo").textContent =
+    `Page ${page} (skip=${(page-1)*20})`;
+  document.getElementById("offsetPrev").disabled = page === 1;
+}
+
+document.getElementById("offsetNext").onclick = () => {
+  offsetPage++;
+  fetchOffset(offsetPage);
+};
+
+document.getElementById("offsetPrev").onclick = () => {
+  if (offsetPage <= 1) return;
+  offsetPage--;
+  // When going back, reset seen IDs — we'll rebuild from page 1 perspective
+  if (offsetPage === 1) seenOffsetIds.clear();
+  fetchOffset(offsetPage);
+};
+
+// ════════════════════════════════════════════════════════
+// INJECT BUTTON
+// ════════════════════════════════════════════════════════
+document.getElementById("injectBtn").onclick = async () => {
+  const btn = document.getElementById("injectBtn");
+  btn.disabled = true;
+  btn.textContent = "Injecting...";
+
+  const res = await fetch(`${API}/api/demo/inject`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ count: 50 }),
+  });
+  const data = await res.json();
+
+  document.getElementById("injectResult").textContent =
+    `✅ Done! Total: ${data.newTotal.toLocaleString()} products`;
+  document.getElementById("totalCount").textContent =
+    `${data.newTotal.toLocaleString()} products total`;
+
+  btn.disabled = false;
+  btn.textContent = "💉 Inject 50 New Products NOW";
+
+  // Refresh BOTH panels to show the effect
+  // Cursor panel: re-fetch current page using same cursor (position unchanged)
+  fetchCursor(cursorStack[cursorStack.length - 1]);
+  // Offset panel: re-fetch current page using same page number (position SHIFTS)
+  fetchOffset(offsetPage);
+};
+
+// ════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString("en-IN", {
+    day: "numeric", month: "short", year: "2-digit"
+  });
+}
+
+async function init() {
+  // Load stats
+  fetch(`${API}/api/stats`)
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById("totalCount").textContent =
+        `${d.total.toLocaleString()} products total`;
+    });
+
+  // Load categories for cursor panel
+  const res = await fetch(`${API}/api/categories`);
+  const cats = await res.json();
+  const sel = document.getElementById("cursorCategory");
+  cats.forEach(c => {
+    const o = document.createElement("option");
+    o.value = c; o.textContent = c;
+    sel.appendChild(o);
+  });
+
+  // Load both panels
+  fetchCursor(null);
+  fetchOffset(1);
+}
+
+init();
+</script>
+</body>
+</html>
